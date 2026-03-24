@@ -1,4 +1,4 @@
-﻿using BLL.Interface;
+using BLL.Interface;
 using BLL.Model.Request.Exam;
 using BLL.Model.Response;
 using BLL.Model.Response.Exam;
@@ -35,6 +35,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<ExamResponse> response = new()
 			{
 				Code = 201,
+				Success = true,
 				Message = "Create exam successfully",
 				Data = await _examService.CreateExam(request)
 			};
@@ -56,6 +57,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<PagingResponse<ExamResponse>> response = new()
 			{
 				Code = 200,
+				Success = true,
 				Message = "Get all exams successfully",
 				Data = result
 			};
@@ -71,6 +73,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<ExamResponse?> response = new()
 			{
 				Code = 200,
+				Success = true,
 				Message = "Get exam successfully",
 				Data = result
 			};
@@ -86,6 +89,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<ExamResponse?> response = new()
 			{
 				Code = 200,
+				Success = true,
 				Message = "Update exam successfully",
 				Data = result
 			};
@@ -101,6 +105,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<bool> response = new()
 			{
 				Code = 204,
+				Success = true,
 				Message = "Delete exam successfully",
 				Data = success
 			};
@@ -182,6 +187,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<PagingResponse<ExamStudentResponse>> response = new()
 			{
 				Code = 200,
+				Success = true,
 				Message = "Get exam students successfully",
 				Data = result
 			};
@@ -196,6 +202,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<ExamResponse> response = new()
 			{
 				Code = 200,
+				Success = true,
 				Message = "Get exam questions successfully",
 				Data = result
 			};
@@ -213,6 +220,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<GradeExportResponse> response = new()
 			{
 				Code = 200,
+				Success = true,
 				Message = "Get exam questions successfully",
 				Data = result
 			};
@@ -235,6 +243,7 @@ namespace SWD_Grading.Controllers
 			BaseResponse<List<GradeExportResponse>> response = new()
 			{
 				Code = 200,
+				Success = true,
 				Message = "Get exam questions successfully",
 				Data = result
 			};
