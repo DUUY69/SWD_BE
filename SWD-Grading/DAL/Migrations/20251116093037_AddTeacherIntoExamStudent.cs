@@ -13,7 +13,7 @@ namespace DAL.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "TeacherCode",
                 table: "Users",
-                type: "nvarchar(max)",
+                type: "text",
                 nullable: false,
                 defaultValue: "");
 

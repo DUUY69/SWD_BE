@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -16,12 +17,12 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    ExamCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    Title = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    Description = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "DATETIME", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "DATETIME", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    ExamCode = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    Description = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -33,11 +34,11 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    StudentCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    FullName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    Email = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    ClassName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    StudentCode = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    FullName = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    Email = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    ClassName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -49,10 +50,10 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Username = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Username = table.Column<string>(type: "text", nullable: false),
+                    PasswordHash = table.Column<string>(type: "text", nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     Role = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -65,12 +66,12 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ExamId = table.Column<long>(type: "bigint", nullable: false),
                     QuestionNumber = table.Column<int>(type: "int", nullable: false),
-                    QuestionText = table.Column<string>(type: "TEXT", nullable: true),
-                    MaxScore = table.Column<decimal>(type: "DECIMAL(5,2)", nullable: false),
-                    RelatedDocSection = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true)
+                    QuestionText = table.Column<string>(type: "text", nullable: true),
+                    MaxScore = table.Column<decimal>(type: "numeric(5,2)", nullable: false),
+                    RelatedDocSection = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -88,14 +89,14 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ExamId = table.Column<long>(type: "bigint", nullable: false),
-                    ZipName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    ZipPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    UploadedAt = table.Column<DateTime>(type: "DATETIME", nullable: false),
-                    ExtractedPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    ParseStatus = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    ParseSummary = table.Column<string>(type: "TEXT", nullable: true)
+                    ZipName = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    ZipPath = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    UploadedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ExtractedPath = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    ParseStatus = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    ParseSummary = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -113,11 +114,11 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ExamId = table.Column<long>(type: "bigint", nullable: false),
                     StudentId = table.Column<long>(type: "bigint", nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Note = table.Column<string>(type: "TEXT", nullable: true)
+                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Note = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -141,11 +142,11 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ExamQuestionId = table.Column<long>(type: "bigint", nullable: false),
-                    Criterion = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
-                    MaxScore = table.Column<decimal>(type: "DECIMAL(5,2)", nullable: false),
-                    AutoCheckRule = table.Column<string>(type: "TEXT", nullable: true),
+                    Criterion = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    MaxScore = table.Column<decimal>(type: "numeric(5,2)", nullable: false),
+                    AutoCheckRule = table.Column<string>(type: "text", nullable: true),
                     OrderIndex = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -164,14 +165,14 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ExamStudentId = table.Column<long>(type: "bigint", nullable: false),
                     ExamZipId = table.Column<long>(type: "bigint", nullable: false),
-                    FileName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    FilePath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    ParsedText = table.Column<string>(type: "NVARCHAR(MAX)", nullable: true),
-                    ParseStatus = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    ParseMessage = table.Column<string>(type: "TEXT", nullable: true)
+                    FileName = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    FilePath = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    ParsedText = table.Column<string>(type: "text", nullable: true),
+                    ParseStatus = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    ParseMessage = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -195,12 +196,12 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ExamStudentId = table.Column<long>(type: "bigint", nullable: false),
-                    TotalScore = table.Column<decimal>(type: "DECIMAL(5,2)", nullable: false),
-                    Comment = table.Column<string>(type: "TEXT", nullable: true),
-                    GradedAt = table.Column<DateTime>(type: "DATETIME", nullable: true),
-                    GradedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                    TotalScore = table.Column<decimal>(type: "numeric(5,2)", nullable: false),
+                    Comment = table.Column<string>(type: "text", nullable: true),
+                    GradedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    GradedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -218,12 +219,12 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     GradeId = table.Column<long>(type: "bigint", nullable: false),
                     RubricId = table.Column<long>(type: "bigint", nullable: false),
-                    Score = table.Column<decimal>(type: "DECIMAL(5,2)", nullable: false),
-                    Comment = table.Column<string>(type: "TEXT", nullable: true),
-                    AutoDetectResult = table.Column<string>(type: "TEXT", nullable: true)
+                    Score = table.Column<decimal>(type: "numeric(5,2)", nullable: false),
+                    Comment = table.Column<string>(type: "text", nullable: true),
+                    AutoDetectResult = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {

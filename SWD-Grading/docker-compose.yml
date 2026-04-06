@@ -1,19 +1,19 @@
 version: '3.8'
 
 services:
-  sqlserver-db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    platform: linux/amd64
-    container_name: sqlserver-db
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: postgres-db
     env_file:
       - .env
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=${DB_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-SWDGradingDB}
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - swd-grading-network
     restart: unless-stopped
@@ -42,8 +42,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      # Database Configuration
-      - ConnectionStrings__DefaultConnection=Server=sqlserver-db,1433;Database=SWDGradingDB;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True;Encrypt=False;
+      # Database (Npgsql)
+      - ConnectionStrings__DefaultConnection=Host=postgres-db;Port=5432;Database=${POSTGRES_DB:-SWDGradingDB};Username=${POSTGRES_USER:-postgres};Password=${DB_PASSWORD}
+      - Database__RunMigrationsOnStart=true
       # JWT Configuration
       - JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - JwtSettings__Issuer=${JWT_ISSUER}
@@ -70,7 +71,7 @@ services:
     networks:
       - swd-grading-network
     depends_on:
-      - sqlserver-db
+      - postgres-db
       - qdrant-db
     restart: unless-stopped
 
@@ -79,6 +80,6 @@ networks:
     driver: bridge
 
 volumes:
-  sqlserver_data:
+  postgres_data:
   qdrant_storage:
 

@@ -14,26 +14,26 @@ namespace DAL.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "AIVerificationResult",
                 table: "similarity_result",
-                type: "nvarchar(max)",
+                type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "AIVerifiedAt",
                 table: "similarity_result",
-                type: "datetime2",
+                type: "timestamp with time zone",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "TeacherNotes",
                 table: "similarity_result",
-                type: "nvarchar(500)",
+                type: "character varying(500)",
                 maxLength: 500,
                 nullable: true);
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "TeacherVerifiedAt",
                 table: "similarity_result",
-                type: "datetime2",
+                type: "timestamp with time zone",
                 nullable: true);
 
             migrationBuilder.AddColumn<int>(

@@ -8,6 +8,8 @@ using DAL.Interface;
 using DAL.Repository;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
@@ -78,9 +80,11 @@ namespace SWD_Grading
 			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 			var secretKey = jwtSettings["SecretKey"];
 
-			// Database Context
+			// Database Context (PostgreSQL)
 			builder.Services.AddDbContext<SWDGradingDbContext>(options =>
-				options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+				options
+					.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+					.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
 			// Authentication Configuration
 			builder.Services.AddAuthentication(options =>
@@ -139,9 +143,6 @@ namespace SWD_Grading
 					}
 				});
 			});
-
-			builder.Services.AddDbContext<SWDGradingDbContext>(options =>
-				options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 			// Unit of Work and Generic Repository
 			builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -212,6 +213,13 @@ namespace SWD_Grading
 			builder.Services.AddAutoMapper(typeof(GradeDetailProfile).Assembly);
 
 			var app = builder.Build();
+
+			if (app.Configuration.GetValue<bool>("Database:RunMigrationsOnStart"))
+			{
+				using var scope = app.Services.CreateScope();
+				var db = scope.ServiceProvider.GetRequiredService<SWDGradingDbContext>();
+				db.Database.Migrate();
+			}
 
 			// Configure the HTTP request pipeline.
 			if (app.Environment.IsDevelopment() || true)

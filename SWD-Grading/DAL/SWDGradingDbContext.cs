@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Model.Entity;
 
 namespace DAL
@@ -45,11 +45,9 @@ namespace DAL
 				entity.Property(e => e.Description)
 					  .HasColumnType("TEXT");
 
-				entity.Property(e => e.CreatedAt)
-					  .HasColumnType("DATETIME");
+				entity.Property(e => e.CreatedAt);
 
-				entity.Property(e => e.UpdatedAt)
-					  .HasColumnType("DATETIME");
+				entity.Property(e => e.UpdatedAt);
 			});
 			modelBuilder.Entity<Student>(entity =>
 			{
@@ -115,8 +113,7 @@ namespace DAL
 				entity.Property(e => e.ZipPath)
 					  .HasMaxLength(500);
 
-				entity.Property(e => e.UploadedAt)
-					  .HasColumnType("DATETIME");
+				entity.Property(e => e.UploadedAt);
 
 				entity.Property(e => e.ExtractedPath)
 					  .HasMaxLength(500);
@@ -148,7 +145,7 @@ namespace DAL
 					  .HasMaxLength(500);
 
 				entity.Property(e => e.ParsedText)
-					  .HasColumnType("NVARCHAR(MAX)");
+					  .HasColumnType("text");
 
 				entity.Property(e => e.ParseMessage)
 					  .HasColumnType("TEXT");
@@ -229,8 +226,7 @@ namespace DAL
 				entity.Property(e => e.Comment)
 					  .HasColumnType("TEXT");
 
-				entity.Property(e => e.GradedAt)
-					  .HasColumnType("DATETIME");
+				entity.Property(e => e.GradedAt);
 
 				entity.Property(e => e.GradedBy)
 					  .HasMaxLength(100);
@@ -280,7 +276,6 @@ namespace DAL
 				entity.Property(e => e.ExamId).IsRequired();
 
 				entity.Property(e => e.CheckedAt)
-					  .HasColumnType("DATETIME")
 					  .IsRequired();
 
 				entity.Property(e => e.Threshold)

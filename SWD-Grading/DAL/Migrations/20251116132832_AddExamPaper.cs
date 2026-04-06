@@ -13,7 +13,7 @@ namespace DAL.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "ExamPaper",
                 table: "exam",
-                type: "nvarchar(max)",
+                type: "text",
                 nullable: true);
         }
 

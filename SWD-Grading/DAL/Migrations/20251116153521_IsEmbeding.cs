@@ -13,7 +13,7 @@ namespace DAL.Migrations
             migrationBuilder.AddColumn<bool>(
                 name: "IsEmbedded",
                 table: "doc_file",
-                type: "bit",
+                type: "boolean",
                 nullable: false,
                 defaultValue: false);
         }

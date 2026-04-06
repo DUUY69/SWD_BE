@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -16,10 +17,10 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ExamId = table.Column<long>(type: "bigint", nullable: false),
-                    CheckedAt = table.Column<DateTime>(type: "DATETIME", nullable: false),
-                    Threshold = table.Column<decimal>(type: "DECIMAL(5,4)", nullable: false),
+                    CheckedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Threshold = table.Column<decimal>(type: "numeric(5,4)", nullable: false),
                     CheckedByUserId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -44,13 +45,13 @@ namespace DAL.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     SimilarityCheckId = table.Column<long>(type: "bigint", nullable: false),
                     DocFile1Id = table.Column<long>(type: "bigint", nullable: false),
                     DocFile2Id = table.Column<long>(type: "bigint", nullable: false),
-                    SimilarityScore = table.Column<decimal>(type: "DECIMAL(5,4)", nullable: false),
-                    Student1Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    Student2Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true)
+                    SimilarityScore = table.Column<decimal>(type: "numeric(5,4)", nullable: false),
+                    Student1Code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    Student2Code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
                 },
                 constraints: table =>
                 {

@@ -13,10 +13,10 @@ namespace DAL.Migrations
             migrationBuilder.AlterColumn<string>(
                 name: "TeacherCode",
                 table: "Users",
-                type: "nvarchar(max)",
+                type: "text",
                 nullable: true,
                 oldClrType: typeof(string),
-                oldType: "nvarchar(max)");
+                oldType: "text");
         }
 
         /// <inheritdoc />
@@ -25,11 +25,11 @@ namespace DAL.Migrations
             migrationBuilder.AlterColumn<string>(
                 name: "TeacherCode",
                 table: "Users",
-                type: "nvarchar(max)",
+                type: "text",
                 nullable: false,
                 defaultValue: "",
                 oldClrType: typeof(string),
-                oldType: "nvarchar(max)",
+                oldType: "text",
                 oldNullable: true);
         }
     }
