@@ -155,7 +155,11 @@ namespace SWD_Grading
 				awsConfig["AccessKey"],
 				awsConfig["SecretKey"]
 			);
-			awsOptions.Region = Amazon.RegionEndpoint.GetBySystemName(awsConfig["Region"]);
+			var regionName = awsConfig["Region"]
+				?? Environment.GetEnvironmentVariable("AWS_REGION")
+				?? Environment.GetEnvironmentVariable("AWS_DEFAULT_REGION")
+				?? "ap-southeast-1";
+			awsOptions.Region = Amazon.RegionEndpoint.GetBySystemName(regionName.Trim());
 
 			builder.Services.AddDefaultAWSOptions(awsOptions);
 			builder.Services.AddAWSService<IAmazonS3>();
