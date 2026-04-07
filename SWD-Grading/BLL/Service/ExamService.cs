@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using BLL.Exceptions;
 using BLL.Interface;
 using BLL.Model.Request.Exam;
@@ -32,6 +32,7 @@ using Amazon.S3.Model;
 using OfficeOpenXml;
 using Microsoft.EntityFrameworkCore;
 using DocumentFormat.OpenXml.Office2016.Excel;
+using System.Globalization;
 
 namespace BLL.Service
 {
@@ -157,12 +158,8 @@ namespace BLL.Service
 			Row descRow = rows[1];   // Description
 			Row scoreRow = rows[2];  // MaxScore của từng rubric
 
-			var partCells = partRow.Elements<Cell>().ToList();
-			var descCells = descRow.Elements<Cell>().ToList();
-			var scoreCells = scoreRow.Elements<Cell>().ToList();
-
-			// Bỏ 2 cột cuối Total + Comment
-			int colCount = partCells.Count - 2;
+			// Bỏ 2 cột cuối Total + Comment (dựa theo cột thật, không theo số cell đã lưu)
+			int colCount = GetMaxColumnIndex(partRow) - 1;
 
 			List<ExamQuestion> questions = new();
 			List<Rubric> rubrics = new();
@@ -173,12 +170,12 @@ namespace BLL.Service
 
 			for (int c = 3; c < colCount; c++)
 			{
-				string partName = GetCellValue(doc, partCells[c]);
-				string desc = GetCellValue(doc, descCells[c]);
-				string scoreStr = GetCellValue(doc, scoreCells[c]);
+				string partName = GetCellValue(doc, GetOrCreateCell(wsPart, partRow, c));
+				string desc = GetCellValue(doc, GetOrCreateCell(wsPart, descRow, c));
+				string scoreStr = GetCellValue(doc, GetOrCreateCell(wsPart, scoreRow, c));
 
 				decimal rubricMaxScore = 0;
-				decimal.TryParse(scoreStr, out rubricMaxScore);
+				decimal.TryParse(scoreStr, NumberStyles.Any, CultureInfo.InvariantCulture, out rubricMaxScore);
 				bool isDuplicatedQuestion = false;
 				// Nếu gặp "Part 1", "Part 2", "Part 3"
 				if (!string.IsNullOrWhiteSpace(partName))
@@ -503,16 +500,13 @@ namespace BLL.Service
 				//---------------------------------------------------------
 				// 3. Mapping rubric row
 				//---------------------------------------------------------
-				int colD = 3, colL = 11;
+				int colD = 3;
 				Row rubricRow = rows[1];
-				var rubricCells = rubricRow.Elements<Cell>().ToList();
-				if (rubricCells.Count <= colL)
-					throw new AppException("Rubric row does not contain expected number of columns", 400);
 				var rubricMap = new Dictionary<string, int>();
-
-				for (int col = colD; col <= colL; col++)
+				int rubricLastCol = Math.Max(colD, GetMaxColumnIndex(rubricRow) - 2); // bỏ 2 cột cuối Total + Comment
+				for (int col = colD; col <= rubricLastCol; col++)
 				{
-					var name = GetCellValue(doc, rubricCells[col]);
+					var name = GetCellValue(doc, GetOrCreateCell(wsPart, rubricRow, col));
 					if (!string.IsNullOrWhiteSpace(name))
 						rubricMap[name.Trim()] = col;
 				}
@@ -732,6 +726,37 @@ namespace BLL.Service
 			}
 
 			return columnName;
+		}
+
+		private int GetMaxColumnIndex(Row row)
+		{
+			int max = 0;
+			foreach (var cell in row.Elements<Cell>())
+			{
+				var reference = cell.CellReference?.Value;
+				if (string.IsNullOrWhiteSpace(reference))
+					continue;
+
+				int current = GetColumnIndexFromCellReference(reference);
+				if (current > max)
+					max = current;
+			}
+
+			return max;
+		}
+
+		private int GetColumnIndexFromCellReference(string cellReference)
+		{
+			int index = 0;
+			foreach (char ch in cellReference)
+			{
+				if (!char.IsLetter(ch))
+					break;
+
+				index = (index * 26) + (char.ToUpperInvariant(ch) - 'A' + 1);
+			}
+
+			return Math.Max(0, index - 1); // zero-based
 		}
 
 
