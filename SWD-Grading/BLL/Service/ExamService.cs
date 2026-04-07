@@ -487,9 +487,15 @@ namespace BLL.Service
 				var wbPart = doc.WorkbookPart!;
 				if (wbPart == null)
 					throw new AppException("WorkbookPart is missing in Excel file", 500);
-				var sheet = wbPart.Workbook.Sheets
-					.Cast<Sheet>()
-					.FirstOrDefault(s => (s.Name?.Value ?? "").Contains("Marking", StringComparison.OrdinalIgnoreCase));
+				var allSheets = wbPart.Workbook.Sheets.Cast<Sheet>().ToList();
+				var sheet = allSheets.FirstOrDefault(s =>
+				{
+					var n = (s.Name?.Value ?? "").Trim();
+					return n.Contains("Marking", StringComparison.OrdinalIgnoreCase)
+						|| n.Contains("Mark", StringComparison.OrdinalIgnoreCase)
+						|| n.Contains("Barem", StringComparison.OrdinalIgnoreCase)
+						|| n.Contains("Grade", StringComparison.OrdinalIgnoreCase);
+				}) ?? allSheets.FirstOrDefault();
 				if (sheet == null)
 					throw new AppException("Sheet 'Marking' not found in Excel template", 400);
 				var wsPart = (WorksheetPart)wbPart.GetPartById(sheet.Id!);
