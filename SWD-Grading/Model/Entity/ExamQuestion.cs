@@ -34,5 +34,6 @@ namespace Model.Entity
 		public string? RelatedDocSection { get; set; }
 
 		public List<Rubric> Rubrics { get; set; } = new();
+		public List<QuestionPacket> QuestionPackets { get; set; } = new();
 	}
 }

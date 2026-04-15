@@ -14,6 +14,10 @@ namespace DAL
 		public DbSet<ExamStudent> ExamStudents { get; set; }
 		public DbSet<ExamZip> ExamZips { get; set; }
 		public DbSet<DocFile> DocFiles { get; set; }
+		public DbSet<Submission> Submissions { get; set; }
+		public DbSet<QuestionPacket> QuestionPackets { get; set; }
+		public DbSet<Flag> Flags { get; set; }
+		public DbSet<ProcessingJob> ProcessingJobs { get; set; }
 		public DbSet<ExamQuestion> ExamQuestions { get; set; }
 		public DbSet<Rubric> Rubrics { get; set; }
 		public DbSet<Grade> Grades { get; set; }
@@ -168,6 +172,162 @@ namespace DAL
 
 				entity.Property(e => e.QuestionNumber)
 					  .HasColumnName("QuestionNumber");
+			});
+			modelBuilder.Entity<Submission>(entity =>
+			{
+				entity.ToTable("submission");
+
+				entity.HasKey(e => e.Id);
+
+				entity.Property(e => e.OriginalFileName)
+					  .HasMaxLength(255);
+
+				entity.Property(e => e.OriginalFileUrl)
+					  .HasMaxLength(500);
+
+				entity.Property(e => e.SourceFormat)
+					  .HasMaxLength(50)
+					  .IsRequired();
+
+				entity.Property(e => e.Status)
+					  .HasConversion<string>()
+					  .HasMaxLength(20)
+					  .IsRequired();
+
+				entity.Property(e => e.FailureReason)
+					  .HasColumnType("TEXT");
+
+				entity.HasIndex(e => new { e.ExamId, e.ExamStudentId, e.Attempt })
+					  .IsUnique();
+
+				entity.HasOne(e => e.Exam)
+					  .WithMany(e => e.Submissions)
+					  .HasForeignKey(e => e.ExamId)
+					  .OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(e => e.ExamStudent)
+					  .WithMany(es => es.Submissions)
+					  .HasForeignKey(e => e.ExamStudentId)
+					  .OnDelete(DeleteBehavior.Cascade);
+			});
+			modelBuilder.Entity<QuestionPacket>(entity =>
+			{
+				entity.ToTable("question_packet");
+
+				entity.HasKey(e => e.Id);
+
+				entity.Property(e => e.ExtractedAnswerText)
+					  .HasColumnType("TEXT");
+
+				entity.Property(e => e.PrimaryImageUrl)
+					  .HasMaxLength(500);
+
+				entity.Property(e => e.ImageUrlsJson)
+					  .HasColumnType("TEXT");
+
+				entity.Property(e => e.Status)
+					  .HasConversion<string>()
+					  .HasMaxLength(20)
+					  .IsRequired();
+
+				entity.Property(e => e.ParseNotes)
+					  .HasColumnType("TEXT");
+
+				entity.Property(e => e.ParseConfidence)
+					  .HasColumnType("DECIMAL(5,2)");
+
+				entity.HasIndex(e => new { e.ExamId, e.ExamStudentId, e.QuestionNumber });
+				entity.HasIndex(e => new { e.SubmissionId, e.QuestionNumber })
+					  .IsUnique();
+
+				entity.HasOne(e => e.Submission)
+					  .WithMany(s => s.QuestionPackets)
+					  .HasForeignKey(e => e.SubmissionId)
+					  .OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(e => e.Exam)
+					  .WithMany(e => e.QuestionPackets)
+					  .HasForeignKey(e => e.ExamId)
+					  .OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(e => e.ExamStudent)
+					  .WithMany(es => es.QuestionPackets)
+					  .HasForeignKey(e => e.ExamStudentId)
+					  .OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(e => e.ExamQuestion)
+					  .WithMany(eq => eq.QuestionPackets)
+					  .HasForeignKey(e => e.ExamQuestionId)
+					  .OnDelete(DeleteBehavior.SetNull);
+			});
+			modelBuilder.Entity<Flag>(entity =>
+			{
+				entity.ToTable("flag");
+
+				entity.HasKey(e => e.Id);
+
+				entity.Property(e => e.SimilarityScore)
+					  .HasColumnType("DECIMAL(5,4)")
+					  .IsRequired();
+
+				entity.Property(e => e.ThresholdUsed)
+					  .HasColumnType("DECIMAL(5,4)")
+					  .IsRequired();
+
+				entity.Property(e => e.Source)
+					  .HasMaxLength(100)
+					  .IsRequired();
+
+				entity.Property(e => e.ReviewStatus)
+					  .HasConversion<string>()
+					  .HasMaxLength(20)
+					  .IsRequired();
+
+				entity.Property(e => e.TeacherNotes)
+					  .HasMaxLength(500);
+
+				entity.HasIndex(e => new { e.QuestionPacketId, e.MatchedQuestionPacketId })
+					  .IsUnique();
+
+				entity.HasOne(e => e.QuestionPacket)
+					  .WithMany(p => p.SourceFlags)
+					  .HasForeignKey(e => e.QuestionPacketId)
+					  .OnDelete(DeleteBehavior.Restrict);
+
+				entity.HasOne(e => e.MatchedQuestionPacket)
+					  .WithMany(p => p.MatchedFlags)
+					  .HasForeignKey(e => e.MatchedQuestionPacketId)
+					  .OnDelete(DeleteBehavior.Restrict);
+
+				entity.HasOne(e => e.ReviewedByUser)
+					  .WithMany(u => u.ReviewedFlags)
+					  .HasForeignKey(e => e.ReviewedByUserId)
+					  .OnDelete(DeleteBehavior.SetNull);
+			});
+			modelBuilder.Entity<ProcessingJob>(entity =>
+			{
+				entity.ToTable("processing_job");
+
+				entity.HasKey(e => e.Id);
+
+				entity.Property(e => e.JobType)
+					  .HasMaxLength(100)
+					  .IsRequired();
+
+				entity.Property(e => e.Status)
+					  .HasConversion<string>()
+					  .HasMaxLength(20)
+					  .IsRequired();
+
+				entity.Property(e => e.ErrorMessage)
+					  .HasColumnType("TEXT");
+
+				entity.HasIndex(e => new { e.SubmissionId, e.JobType, e.CreatedAt });
+
+				entity.HasOne(e => e.Submission)
+					  .WithMany(s => s.ProcessingJobs)
+					  .HasForeignKey(e => e.SubmissionId)
+					  .OnDelete(DeleteBehavior.Cascade);
 			});
 			modelBuilder.Entity<ExamQuestion>(entity =>
 			{

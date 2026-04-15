@@ -38,6 +38,8 @@ namespace Model.Entity
 
 		public string? Note { get; set; }
 		public List<Grade> Grades { get; set; } = new();
+		public List<Submission> Submissions { get; set; } = new();
+		public List<QuestionPacket> QuestionPackets { get; set; } = new();
 	}
 
 }
