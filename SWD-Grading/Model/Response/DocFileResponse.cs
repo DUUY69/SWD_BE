@@ -12,6 +12,7 @@ namespace Model.Response
 		public string? FileName { get; set; }
 		public string? FilePath { get; set; }
 		public string ParseStatus { get; set; } = null!;
+		public int? QuestionNumber { get; set; }
 	}
 }
 

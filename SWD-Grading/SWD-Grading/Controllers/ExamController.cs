@@ -22,11 +22,13 @@ namespace SWD_Grading.Controllers
 		private readonly IExamService _examService;
 		private readonly IExamStudentService _examStudentService;
 		private readonly ITesseractOcrService _ocrService;
-		public ExamController(IExamService examService, ITesseractOcrService ocrService, IExamStudentService examStudentService)
+		private readonly IS3Service _s3Service;
+		public ExamController(IExamService examService, ITesseractOcrService ocrService, IExamStudentService examStudentService, IS3Service s3Service)
 		{
 			_examService = examService;
 			_ocrService = ocrService;
 			_examStudentService = examStudentService;
+			_s3Service = s3Service;
 		}
 
 		[HttpPost]
@@ -249,6 +251,91 @@ namespace SWD_Grading.Controllers
 			};
 
 			return Ok(response);
+		}
+
+		[HttpPost("{id}/questions-docx")]
+		[Consumes("multipart/form-data")]
+		public async Task<IActionResult> ParseDocxQuestions([FromRoute] long id, IFormFile file)
+		{
+			if (file == null || file.Length == 0)
+				return BadRequest("No file uploaded.");
+
+			int count = await _examService.ParseDocxQuestions(id, file);
+
+			return Ok(new
+			{
+				code = 200,
+				message = $"Successfully extracted {count} questions from DOCX.",
+				questionCount = count
+			});
+		}
+
+		[HttpGet("students/{id}/next")]
+		public async Task<IActionResult> GetNextStudent([FromRoute] long id)
+		{
+			var nextId = await _examService.GetNextStudentId(id);
+
+			return Ok(new
+			{
+				code = 200,
+				nextStudentId = nextId
+			});
+		}
+
+		/// <summary>
+		/// Auto-create missing ExamQuestion records from split doc files
+		/// </summary>
+		[HttpPost("{id}/sync-questions")]
+		public async Task<IActionResult> SyncQuestionsFromDocFiles([FromRoute] long id)
+		{
+			var count = await _examService.SyncQuestionsFromDocFiles(id);
+			return Ok(new
+			{
+				code = 200,
+				success = true,
+				message = $"Synced {count} questions from doc files",
+				data = count
+			});
+		}
+
+		/// <summary>
+		/// Proxy: stream a doc_file from S3 so Office/Google Docs viewer can render it
+		/// </summary>
+		[HttpGet("doc-files/{docFileId}/proxy")]
+		[AllowAnonymous]
+		public async Task<IActionResult> ProxyDocFile([FromRoute] long docFileId)
+		{
+			try
+			{
+				var docFile = await _examService.GetDocFileById(docFileId);
+				if (docFile == null || string.IsNullOrEmpty(docFile.FilePath))
+					return NotFound();
+
+				// Extract S3 key from full URL
+				var uri = new Uri(docFile.FilePath);
+				string s3Key = uri.AbsolutePath.TrimStart('/');
+
+				var stream = await _s3Service.GetFileAsync(s3Key);
+				var contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+				return File(stream, contentType, docFile.FileName);
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { message = ex.Message });
+			}
+		}
+
+		[HttpGet("{id}/paper-inline")]
+		public async Task<IActionResult> GetPaperInline([FromRoute] long id)
+		{
+			var result = await _examService.GetPaperInline(id);
+			return Ok(new BaseResponse<string>
+			{
+				Code = 200,
+				Success = true,
+				Message = "Get paper inline successfully",
+				Data = result
+			});
 		}
 	}
 }

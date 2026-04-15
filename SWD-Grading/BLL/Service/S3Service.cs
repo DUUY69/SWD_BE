@@ -1,4 +1,4 @@
-﻿using Amazon.S3;
+using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using BLL.Interface;
@@ -203,6 +203,31 @@ namespace BLL.Service
 			return string.Empty;
 		}
 	}
-}
-}
 
+	public string? GetPresignedUrlFromFullUrl(string? fullUrl, int expiryMinutes = 60)
+		{
+			if (string.IsNullOrWhiteSpace(fullUrl))
+			{
+				return fullUrl;
+			}
+
+			try
+			{
+				// Common S3 URL format: https://bucket-name.s3.region.amazonaws.com/key
+				// We need to extract the "key" part.
+				// Since we know our own URL format: https://{bucket}.s3.{region}.amazonaws.com/{key}
+				
+				var uri = new Uri(fullUrl);
+				// The key is the path part of the URI, minus the leading slash
+				string s3Key = uri.AbsolutePath.TrimStart('/');
+
+				return GetPresignedUrl(s3Key, expiryMinutes);
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error parsing S3 URL '{fullUrl}': {ex.Message}");
+				return fullUrl; // Return original if parsing fails
+			}
+		}
+	}
+}

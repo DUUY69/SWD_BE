@@ -56,6 +56,7 @@ namespace SWD_Grading
 			var allowedOrigins = builder.Configuration.GetSection("CORS:AllowedOrigins").Get<string[]>()
 				?? new[]
 				{
+					"http://localhost:5173",
 					"https://swd-fe-vert.vercel.app",
 					"https://swd-fe-git-main-duys-projects-fa81d97e.vercel.app",
 					"https://swd-edym8ja1o-duys-projects-fa81d97e.vercel.app",

@@ -1,4 +1,4 @@
-﻿using BLL.Model.Request.Exam;
+using BLL.Model.Request.Exam;
 using BLL.Model.Response;
 using BLL.Model.Response.Exam;
 using BLL.Model.Response.Grade;
@@ -26,5 +26,11 @@ namespace BLL.Interface
 		Task<PagingResponse<ExamResponse>> GetAssignedExam(ExamFilter filter, int userId);
         Task<List<GradeExportResponse>> GetGradeHistory(long id);
 		Task<List<GradeExportResponse>> GetMyGradeHistory(int teacherId, long id);
+		Task<int> ParseDocxQuestions(long examId, IFormFile file);
+		Task<int> ParseDocxQuestionsFromPath(long examId, string filePath);
+		Task<long?> GetNextStudentId(long currentExamStudentId);
+		Task<string?> GetPaperInline(long id);
+		Task<DocFile?> GetDocFileById(long docFileId);
+		Task<int> SyncQuestionsFromDocFiles(long examId);
 	}
 }

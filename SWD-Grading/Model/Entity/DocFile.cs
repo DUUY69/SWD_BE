@@ -1,4 +1,4 @@
-﻿using Model.Enums;
+using Model.Enums;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -50,6 +50,12 @@ namespace Model.Entity
 	/// </summary>
 	[Required]
 	public bool IsEmbedded { get; set; } = false;
+
+	/// <summary>
+	/// If this file is a split segment representing a specific question's answer,
+	/// this stores the question number (1, 2, 3...).
+	/// Null indicates the original/full document.
+	/// </summary>
 	public int? QuestionNumber { get; set; }
 }
 }

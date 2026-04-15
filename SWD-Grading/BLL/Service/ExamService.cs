@@ -63,7 +63,10 @@ namespace BLL.Service
 			Exam exam = _mapper.Map<Exam>(request);
 			await _unitOfWork.ExamRepository.AddAsync(exam);
 			await _unitOfWork.SaveChangesAsync();
-			return _mapper.Map<ExamResponse>(exam);
+			
+			var response = _mapper.Map<ExamResponse>(exam);
+			response.ExamPaper = _s3Service.GetPresignedUrlFromFullUrl(response.ExamPaper);
+			return response;
 		}
 
 		public async Task<bool> DeleteAsync(long id)
@@ -88,10 +91,14 @@ namespace BLL.Service
 			Func<IQueryable<Exam>, IOrderedQueryable<Exam>> orderBy = q => q.OrderByDescending(o => o.CreatedAt);
 			var data = await _unitOfWork.ExamRepository.GetPagedAsync<Exam>(
 				skip, filter.Size, filters, orderBy, null, null, asNoTracking: true);
-			var respones = _mapper.Map<IEnumerable<ExamResponse>>(data.ToList());
+			var responses = _mapper.Map<IEnumerable<ExamResponse>>(data.ToList());
+			foreach (var res in responses)
+			{
+				res.ExamPaper = _s3Service.GetPresignedUrlFromFullUrl(res.ExamPaper);
+			}
 			return new()
 			{
-				Result = respones,
+				Result = responses,
 				Page = filter.Page,
 				Size = filter.Size,
 				TotalItems = totalItems,
@@ -102,9 +109,10 @@ namespace BLL.Service
 		public async Task<ExamResponse?> GetByIdAsync(long id)
 		{
 			var exam = await _unitOfWork.ExamRepository.GetByIdAsync(id);
-			return exam == null ?
-				throw new AppException("Exam not found", 404) :
-				_mapper.Map<ExamResponse>(exam);
+			if (exam == null) throw new AppException("Exam not found", 404);
+			var response = _mapper.Map<ExamResponse>(exam);
+			response.ExamPaper = _s3Service.GetPresignedUrlFromFullUrl(response.ExamPaper);
+			return response;
 		}
 
 		public async Task ParseDetailExcel(long examId, IFormFile file)
@@ -158,8 +166,11 @@ namespace BLL.Service
 			Row descRow = rows[1];   // Description
 			Row scoreRow = rows[2];  // MaxScore của từng rubric
 
-			// Bỏ 2 cột cuối Total + Comment (dựa theo cột thật, không theo số cell đã lưu)
-			int colCount = GetMaxColumnIndex(partRow) - 1;
+			int maxPartCol = GetMaxColumnIndex(partRow);
+			int maxDescCol = GetMaxColumnIndex(descRow);
+			int maxScoreCol = GetMaxColumnIndex(scoreRow);
+			int trueMaxCol = Math.Max(maxPartCol, Math.Max(maxDescCol, maxScoreCol));
+			int colCount = trueMaxCol;
 
 			List<ExamQuestion> questions = new();
 			List<Rubric> rubrics = new();
@@ -168,30 +179,45 @@ namespace BLL.Service
 			ExamQuestion? currentQuestion = null;
 			decimal currentPartTotal = 0;
 
-			for (int c = 3; c < colCount; c++)
+			for (int c = 3; c <= colCount; c++)
 			{
 				string partName = GetCellValue(doc, GetOrCreateCell(wsPart, partRow, c));
 				string desc = GetCellValue(doc, GetOrCreateCell(wsPart, descRow, c));
 				string scoreStr = GetCellValue(doc, GetOrCreateCell(wsPart, scoreRow, c));
 
+				if (partName.Trim().Equals("Total", StringComparison.OrdinalIgnoreCase) || partName.Trim().Equals("Comment", StringComparison.OrdinalIgnoreCase))
+					continue;
+				if (desc.Trim().Equals("Total", StringComparison.OrdinalIgnoreCase) || desc.Trim().Equals("Comment", StringComparison.OrdinalIgnoreCase))
+					continue;
+
 				decimal rubricMaxScore = 0;
 				decimal.TryParse(scoreStr, NumberStyles.Any, CultureInfo.InvariantCulture, out rubricMaxScore);
-				bool isDuplicatedQuestion = false;
-				// Nếu gặp "Part 1", "Part 2", "Part 3"
+				
+				// Nếu gặp "Part 1", "Part 2", "Part 3" hoặc "Question 1"...
 				if (!string.IsNullOrWhiteSpace(partName))
 				{
-					isDuplicatedQuestion = await _unitOfWork.ExamQuestionRepository.ExistQuestionByExamIdAndQuestionName(examId, partName);
-					if (!isDuplicatedQuestion)
+					// Nếu đang ở part trước → cập nhật tổng điểm
+					if (currentQuestion != null)
 					{
-						// Nếu đang ở part trước → cập nhật tổng điểm
-						if (currentQuestion != null)
-						{
-							currentQuestion.MaxScore = currentPartTotal;
+						currentQuestion.MaxScore = currentPartTotal;
+						if (currentQuestion.Id > 0) {
+							await _unitOfWork.ExamQuestionRepository.UpdateAsync(currentQuestion);
 						}
+					}
 
-						// Reset
-						currentPartTotal = 0;
+					// Reset
+					currentPartTotal = 0;
 
+					// Find if question already exists in DB (e.g. from ParseDocxQuestions)
+					var existingQuestions = (await _unitOfWork.ExamQuestionRepository.GetQuestionByExamId(examId)).ToList();
+					var existingQ = existingQuestions.FirstOrDefault(q => q.QuestionText.Trim().ToLower() == partName.Trim().ToLower());
+
+					if (existingQ != null)
+					{
+						currentQuestion = existingQ;
+					}
+					else
+					{
 						currentQuestion = new ExamQuestion
 						{
 							ExamId = examId,
@@ -199,22 +225,27 @@ namespace BLL.Service
 							QuestionText = partName,
 							MaxScore = 0 // sẽ cập nhật sau
 						};
-
 						questions.Add(currentQuestion);
 					}
 				}
 
 				// Thêm Rubric thuộc part hiện tại
-				if (!isDuplicatedQuestion && currentQuestion != null && !string.IsNullOrWhiteSpace(desc))
+				if (currentQuestion != null && !string.IsNullOrWhiteSpace(desc))
 				{
-					rubrics.Add(new Rubric
+					var newRubric = new Rubric
 					{
-						ExamQuestion = currentQuestion,
 						Criterion = desc,
 						MaxScore = rubricMaxScore,
 						OrderIndex = rubrics.Count + 1
-					});
+					};
 
+					if (currentQuestion.Id > 0) {
+						newRubric.ExamQuestionId = currentQuestion.Id;
+					} else {
+						newRubric.ExamQuestion = currentQuestion;
+					}
+
+					rubrics.Add(newRubric);
 					currentPartTotal += rubricMaxScore; // cộng dồn điểm cho Part
 				}
 			}
@@ -223,6 +254,9 @@ namespace BLL.Service
 			if (currentQuestion != null)
 			{
 				currentQuestion.MaxScore = currentPartTotal;
+				if (currentQuestion.Id > 0) {
+					await _unitOfWork.ExamQuestionRepository.UpdateAsync(currentQuestion);
+				}
 			}
 
 			//--------------------------------------------------------------------
@@ -658,7 +692,7 @@ namespace BLL.Service
 				throw new AppException("Failed to save export history to database", 500);
 			}
 
-			return new GradeExportResponse { Url = url };
+			return new GradeExportResponse { Url = _s3Service.GetPresignedUrlFromFullUrl(url) };
 		}
 
 		private Row? FindRowByStudentCode(SpreadsheetDocument doc, WorksheetPart wsPart, List<Row> rows, string studentCode)
@@ -857,10 +891,14 @@ namespace BLL.Service
 				null,
 				asNoTracking: true
 			);
-			var respones = _mapper.Map<IEnumerable<ExamResponse>>(data.ToList());
+			var responses = _mapper.Map<IEnumerable<ExamResponse>>(data.ToList());
+			foreach (var res in responses)
+			{
+				res.ExamPaper = _s3Service.GetPresignedUrlFromFullUrl(res.ExamPaper);
+			}
 			return new PagingResponse<ExamResponse>
 			{
-				Result = respones,
+				Result = responses,
 				Page = filter.Page,
 				Size = filter.Size,
 				TotalItems = totalItems,
@@ -871,13 +909,191 @@ namespace BLL.Service
 		public async Task<List<GradeExportResponse>> GetGradeHistory(long id)
 		{
 			var responses = await _unitOfWork.GradeExportRepository.GetGradeExportByExamId(id);
-			return _mapper.Map<List<GradeExportResponse>>(responses);
+			var mapped = _mapper.Map<List<GradeExportResponse>>(responses);
+			foreach (var res in mapped)
+			{
+				res.Url = _s3Service.GetPresignedUrlFromFullUrl(res.Url);
+			}
+			return mapped;
 		}
 
 		public async Task<List<GradeExportResponse>> GetMyGradeHistory(int teacherId, long id)
 		{
 			var responses = await _unitOfWork.GradeExportRepository.GetGradeExportByTeacherIdAndExamId(teacherId, id);
-			return _mapper.Map<List<GradeExportResponse>>(responses);
+			var mapped = _mapper.Map<List<GradeExportResponse>>(responses);
+			foreach (var res in mapped)
+			{
+				res.Url = _s3Service.GetPresignedUrlFromFullUrl(res.Url);
+			}
+			return mapped;
+		}
+
+		public async Task<int> ParseDocxQuestions(long examId, IFormFile file)
+		{
+			using var ms = new MemoryStream();
+			await file.CopyToAsync(ms);
+			ms.Position = 0;
+			return await ParseDocxQuestionsFromStream(examId, ms);
+		}
+
+		public async Task<int> ParseDocxQuestionsFromPath(long examId, string filePath)
+		{
+			using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+			return await ParseDocxQuestionsFromStream(examId, fs);
+		}
+
+		private async Task<int> ParseDocxQuestionsFromStream(long examId, Stream stream)
+		{
+			using var doc = WordprocessingDocument.Open(stream, false);
+			var body = doc.MainDocumentPart?.Document.Body;
+			if (body == null) return 0;
+
+			var paragraphs = body.Elements<DocumentFormat.OpenXml.Wordprocessing.Paragraph>().ToList();
+
+			int questionCount = 0;
+			ExamQuestion? currentQuestion = null;
+			StringBuilder questionText = new();
+
+			// Regex to match "Question 1:", "Câu 1:", "Q1.", etc.
+			var questionRegex = new System.Text.RegularExpressions.Regex(@"^(Question|Câu|Q|C)\s*(\d+)\s*[:.]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+			foreach (var para in paragraphs)
+			{
+				string text = para.InnerText.Trim();
+				if (string.IsNullOrWhiteSpace(text)) continue;
+
+				var match = questionRegex.Match(text);
+				if (match.Success)
+				{
+					// Save previous question
+					if (currentQuestion != null)
+					{
+						currentQuestion.QuestionText = questionText.ToString().Trim();
+						await _unitOfWork.ExamQuestionRepository.AddAsync(currentQuestion);
+						questionCount++;
+					}
+
+					// Start new question
+					int qNum = int.Parse(match.Groups[2].Value);
+					currentQuestion = new ExamQuestion
+					{
+						ExamId = examId,
+						QuestionNumber = qNum,
+						MaxScore = 0 
+					};
+					questionText = new StringBuilder();
+					questionText.AppendLine(text);
+				}
+				else if (currentQuestion != null)
+				{
+					questionText.AppendLine(text);
+				}
+			}
+
+			// Save the last question
+			if (currentQuestion != null)
+			{
+				currentQuestion.QuestionText = questionText.ToString().Trim();
+				await _unitOfWork.ExamQuestionRepository.AddAsync(currentQuestion);
+				questionCount++;
+			}
+
+			await _unitOfWork.SaveChangesAsync();
+			return questionCount;
+		}
+
+		public async Task<long?> GetNextStudentId(long currentExamStudentId)
+		{
+			var currentStudent = await _unitOfWork.ExamStudentRepository.GetByIdAsync(currentExamStudentId);
+			if (currentStudent == null) return null;
+
+			// Find the next student in the same exam by Id (which follows the import order)
+			var nextStudent = await _unitOfWork.ExamStudentRepository
+				.Query(asNoTracking: true)
+				.Where(es => es.ExamId == currentStudent.ExamId && es.Id > currentExamStudentId)
+				.OrderBy(es => es.Id)
+				.FirstOrDefaultAsync();
+
+			return nextStudent?.Id;
+		}
+		public async Task<string?> GetPaperInline(long id)
+		{
+			var exam = await _unitOfWork.ExamRepository.GetByIdAsync(id);
+			if (exam == null) return null;
+
+			if (string.IsNullOrEmpty(exam.ExamPaper)) return null;
+
+			// If it's a full S3 URL or path, get a presigned URL
+			if (exam.ExamPaper.Contains("s3.amazonaws.com") || exam.ExamPaper.StartsWith(exam.ExamCode))
+			{
+				return _s3Service.GetPresignedUrlFromFullUrl(exam.ExamPaper);
+			}
+
+			return exam.ExamPaper;
+		}
+
+		public async Task<DocFile?> GetDocFileById(long docFileId)
+		{
+			return await _unitOfWork.DocFileRepository.GetByIdAsync(docFileId);
+		}
+
+		public async Task<int> SyncQuestionsFromDocFiles(long examId)
+		{
+			// Get all student IDs for this exam
+			var studentIds = await _unitOfWork.ExamStudentRepository
+				.Query(asNoTracking: true)
+				.Where(es => es.ExamId == examId)
+				.Select(es => es.Id)
+				.ToListAsync();
+
+			if (!studentIds.Any()) return 0;
+
+			// Find all unique question numbers from split doc files
+			var questionNumbers = await _unitOfWork.DocFileRepository
+				.Query(asNoTracking: true)
+				.Where(df => studentIds.Contains(df.ExamStudentId) && df.QuestionNumber.HasValue && df.QuestionNumber.Value > 0)
+				.Select(df => df.QuestionNumber!.Value)
+				.Distinct()
+				.OrderBy(q => q)
+				.ToListAsync();
+
+			if (!questionNumbers.Any()) return 0;
+
+			// Get existing questions
+			var existingQuestions = await _unitOfWork.ExamQuestionRepository
+				.Query(asNoTracking: false)
+				.Where(eq => eq.ExamId == examId)
+				.ToListAsync();
+
+			int added = 0;
+			foreach (var qNum in questionNumbers)
+			{
+				if (!existingQuestions.Any(eq => eq.QuestionNumber == qNum))
+				{
+					var newQuestion = new ExamQuestion
+					{
+						ExamId = examId,
+						QuestionNumber = qNum,
+						QuestionText = $"Question {qNum}",
+						MaxScore = 10
+					};
+					await _unitOfWork.ExamQuestionRepository.AddAsync(newQuestion);
+					await _unitOfWork.SaveChangesAsync();
+
+					var rubric = new Rubric
+					{
+						ExamQuestionId = newQuestion.Id,
+						Criterion = $"Tiêu chí 1",
+						MaxScore = newQuestion.MaxScore,
+						OrderIndex = 1
+					};
+					await _unitOfWork.RubricRepository.AddAsync(rubric);
+					added++;
+				}
+			}
+
+			await _unitOfWork.SaveChangesAsync();
+			return added;
 		}
 	}
 }

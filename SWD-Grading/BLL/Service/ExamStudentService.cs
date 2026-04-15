@@ -16,10 +16,12 @@ namespace BLL.Service
 	public class ExamStudentService : IExamStudentService
 	{
 		private readonly IUnitOfWork _unitOfWork;
+		private readonly IS3Service _s3Service;
 
-		public ExamStudentService(IUnitOfWork unitOfWork)
+		public ExamStudentService(IUnitOfWork unitOfWork, IS3Service s3Service)
 		{
 			_unitOfWork = unitOfWork;
+			_s3Service = s3Service;
 		}
 
 		public async Task<PagingResponse<ExamStudentResponse>> GetExamStudentsByExamIdAsync(long examId, ExamStudentFilter filter)
@@ -89,8 +91,9 @@ namespace BLL.Service
 					{
 						DocFileId = df.Id,
 						FileName = df.FileName,
-						FilePath = df.FilePath,
-						ParseStatus = df.ParseStatus.ToString()
+						FilePath = _s3Service.GetPresignedUrlFromFullUrl(df.FilePath),
+						ParseStatus = df.ParseStatus.ToString(),
+						QuestionNumber = df.QuestionNumber
 					}).ToList()
 					: new List<DocFileResponse>()
 			}).ToList();
@@ -188,8 +191,9 @@ namespace BLL.Service
 					{
 						DocFileId = df.Id,
 						FileName = df.FileName,
-						FilePath = df.FilePath,
-						ParseStatus = df.ParseStatus.ToString()
+						FilePath = _s3Service.GetPresignedUrlFromFullUrl(df.FilePath),
+						ParseStatus = df.ParseStatus.ToString(),
+						QuestionNumber = df.QuestionNumber
 					}).ToList()
 					: new List<DocFileResponse>()
 			})

@@ -1,5 +1,6 @@
-﻿using Amazon.S3.Model.Internal.MarshallTransformations;
+using Amazon.S3.Model.Internal.MarshallTransformations;
 using AutoMapper;
+using BLL.Exceptions;
 using BLL.Interface;
 using BLL.Model.Request;
 using BLL.Model.Request.Grade;
@@ -173,20 +174,51 @@ namespace BLL.Service
 
 		public async Task Update(GradeUpdateRequest request, long id)
 		{
-			var existingExamStudent = await _unitOfWork.ExamStudentRepository.GetByIdAsync(request.ExamStudentId);
-			existingExamStudent.Status = ExamStudentStatus.GRADED;
-			await _unitOfWork.ExamStudentRepository.UpdateAsync(existingExamStudent);
-			await _unitOfWork.SaveChangesAsync();
-
-            var existingGrade = await _unitOfWork.GradeRepository.GetById(id);
+			// 1. Get the grade
+			var existingGrade = await _unitOfWork.GradeRepository.GetById(id);
 			if (existingGrade == null)
 			{
-				throw new KeyNotFoundException("Grade not found");
+				throw new AppException("Grade not found", 404);
 			}
-			_mapper.Map(request, existingGrade);
+
+			// 2. Update individual rubric scores if provided
+			if (request.Details != null && request.Details.Any())
+			{
+				var existingDetails = await _unitOfWork.GradeDetailRepository.GetByGradeId(id);
+				
+				foreach (var detailDto in request.Details)
+				{
+					var detail = existingDetails.FirstOrDefault(d => d.RubricId == detailDto.RubricId);
+					if (detail != null)
+					{
+						detail.Score = detailDto.Score;
+						await _unitOfWork.GradeDetailRepository.UpdateAsync(detail);
+					}
+				}
+
+				// 3. Recalculate Total Score based on details
+				existingGrade.TotalScore = existingDetails.Sum(d => d.Score);
+			}
+			else
+			{
+				// Fallback to manual total if no details provided
+				existingGrade.TotalScore = request.TotalScore;
+			}
+
+			// 4. Update general grade info
+			existingGrade.Comment = request.Comment;
 			existingGrade.GradedAt = DateTime.UtcNow;
 			existingGrade.Status = GradeStatus.GRADED;
-            await _unitOfWork.GradeRepository.UpdateAsync(existingGrade);
+
+			// 5. Update student status to GRADED
+			var existingExamStudent = await _unitOfWork.ExamStudentRepository.GetByIdAsync(existingGrade.ExamStudentId);
+			if (existingExamStudent != null)
+			{
+				existingExamStudent.Status = ExamStudentStatus.GRADED;
+				await _unitOfWork.ExamStudentRepository.UpdateAsync(existingExamStudent);
+			}
+
+			await _unitOfWork.GradeRepository.UpdateAsync(existingGrade);
 			await _unitOfWork.SaveChangesAsync();
 		}
 

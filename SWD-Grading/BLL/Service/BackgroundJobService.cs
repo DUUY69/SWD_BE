@@ -14,13 +14,13 @@ namespace BLL.Service
 {
 	public class BackgroundJobService : BackgroundService
 	{
-		private readonly IServiceProvider _serviceProvider;
+		private readonly IServiceScopeFactory _scopeFactory;
 		private readonly ILogger<BackgroundJobService> _logger;
 		private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(10);
 
-		public BackgroundJobService(IServiceProvider serviceProvider, ILogger<BackgroundJobService> logger)
+		public BackgroundJobService(IServiceScopeFactory scopeFactory, ILogger<BackgroundJobService> logger)
 		{
-			_serviceProvider = serviceProvider;
+			_scopeFactory = scopeFactory;
 			_logger = logger;
 		}
 
@@ -32,16 +32,30 @@ namespace BLL.Service
 			{
 				try
 				{
-					await ProcessPendingExamZipsAsync();
-					await ProcessPendingEmbeddingsAsync();
+					if (!stoppingToken.IsCancellationRequested)
+					{
+						await ProcessPendingExamZipsAsync();
+						// await ProcessPendingEmbeddingsAsync();
+					}
 				}
-				catch (Exception ex)
+				catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
 				{
 					_logger.LogError(ex, "Error occurred while processing background jobs");
 				}
+				catch (OperationCanceledException)
+				{
+					// Ignore during shutdown
+				}
 
 				// Wait before next poll
-				await Task.Delay(_pollInterval, stoppingToken);
+				if (!stoppingToken.IsCancellationRequested)
+				{
+					try
+					{
+						await Task.Delay(_pollInterval, stoppingToken);
+					}
+					catch (OperationCanceledException) { }
+				}
 			}
 
 			_logger.LogInformation("Background Job Service stopped");
@@ -49,7 +63,7 @@ namespace BLL.Service
 
 		private async Task ProcessPendingExamZipsAsync()
 		{
-			using (var scope = _serviceProvider.CreateScope())
+			using (var scope = _scopeFactory.CreateScope())
 			{
 				var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 				var fileProcessingService = scope.ServiceProvider.GetRequiredService<IFileProcessingService>();
@@ -78,7 +92,7 @@ namespace BLL.Service
 			}
 		}
 
-		private async Task ProcessPendingEmbeddingsAsync()
+		/*private async Task ProcessPendingEmbeddingsAsync()
 		{
 			using (var scope = _serviceProvider.CreateScope())
 			{
@@ -108,7 +122,7 @@ namespace BLL.Service
 					}
 				}
 			}
-		}
+		}*/
 	}
 }
 

@@ -41,6 +41,14 @@ namespace BLL.Interface
 	/// <param name="expiryMinutes">URL expiry time in minutes (default: 60)</param>
 	/// <returns>Presigned URL</returns>
 	string GetPresignedUrl(string s3Key, int expiryMinutes = 60);
+
+	/// <summary>
+	/// Extract key from a full S3 URL and generate a presigned URL
+	/// </summary>
+	/// <param name="fullUrl">Full S3 URL (e.g., https://bucket.s3.region.amazonaws.com/key)</param>
+	/// <param name="expiryMinutes">URL expiry time in minutes</param>
+	/// <returns>Presigned URL or original URL if parsing fails</returns>
+	string? GetPresignedUrlFromFullUrl(string? fullUrl, int expiryMinutes = 60);
 }
 }
 

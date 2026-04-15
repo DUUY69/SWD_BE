@@ -1,7 +1,9 @@
 using BLL.Interface;
 using DAL.Interface;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.Extensions.Logging;
 using Model.Entity;
 using Model.Enums;
 using System;
@@ -18,11 +20,15 @@ namespace BLL.Service
 	{
 		private readonly IUnitOfWork _unitOfWork;
 		private readonly IS3Service _s3Service;
+		private readonly IExamService _examService;
+		private readonly ILogger<FileProcessingService> _logger;
 
-		public FileProcessingService(IUnitOfWork unitOfWork, IS3Service s3Service)
+		public FileProcessingService(IUnitOfWork unitOfWork, IS3Service s3Service, IExamService examService, ILogger<FileProcessingService> logger)
 		{
 			_unitOfWork = unitOfWork;
 			_s3Service = s3Service;
+			_examService = examService;
+			_logger = logger;
 		}
 
 		public async Task ProcessStudentSolutionsAsync(long examZipId)
@@ -87,6 +93,27 @@ namespace BLL.Service
 								studentSolutionsPath = path;
 								break;
 							}
+						}
+					}
+
+					//--------------------------------------------------------------------
+					// NEW: SCAN FOR EXAM PAPER (.docx in root)
+					//--------------------------------------------------------------------
+					var docxInRoot = Directory.GetFiles(tempExtractPath, "*.docx", SearchOption.TopDirectoryOnly)
+						.Where(f => !Path.GetFileName(f).StartsWith("~$"))
+						.FirstOrDefault();
+
+					if (docxInRoot != null)
+					{
+						processSummary.AppendLine($"Detected exam paper: {Path.GetFileName(docxInRoot)}. Parsing questions...");
+						try 
+						{
+							int qCount = await _examService.ParseDocxQuestionsFromPath(exam.Id, docxInRoot);
+							processSummary.AppendLine($"Successfully parsed {qCount} questions from DOCX.");
+						}
+						catch (Exception ex)
+						{
+							processSummary.AppendLine($"Warning: Failed to parse questions from DOCX: {ex.Message}");
 						}
 					}
 
@@ -291,15 +318,125 @@ namespace BLL.Service
 				ParseStatus = parseStatus,
 				ParseMessage = parseMessage
 			};
-			await _unitOfWork.DocFileRepository.AddAsync(docFile);
+				await _unitOfWork.DocFileRepository.AddAsync(docFile);
+				await _unitOfWork.SaveChangesAsync();
+
+				//--------------------------------------------------------------------
+				// NEW: SPLIT SOLUTION BY QUESTIONS
+				//--------------------------------------------------------------------
+				if (parseStatus == DocParseStatus.OK)
+				{
+					try 
+					{
+						await SplitStudentSolutionByQuestionsAsync(wordFilePath, examStudent.Id, examZip.Id, s3Path);
+					}
+					catch (Exception ex)
+					{
+						_logger.LogError(ex, $"Failed to split document {fileName} for student {studentCode}");
+					}
+				}
+			}
+
+			// Update ExamStudent status to PARSED
+			examStudent.Status = ExamStudentStatus.PARSED;
+			examStudent.Note = $"Processed {allWordFiles.Count} Word file(s)";
+
+			await _unitOfWork.SaveChangesAsync();
 		}
 
-		// Update ExamStudent status to PARSED
-		examStudent.Status = ExamStudentStatus.PARSED;
-		examStudent.Note = $"Processed {allWordFiles.Count} Word file(s)";
+	private async Task SplitStudentSolutionByQuestionsAsync(string sourcePath, long examStudentId, long examZipId, string s3Path)
+	{
+		var questionRegex = new System.Text.RegularExpressions.Regex(@"^(Question|Câu|Q|C)\s*(\d+)\s*[:.]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+		
+		int totalElements = 0;
+		List<int> questionStartIndices = new List<int>();
+		List<int> questionNumbers = new List<int>();
 
+		using (WordprocessingDocument mainDoc = WordprocessingDocument.Open(sourcePath, false))
+		{
+			var body = mainDoc.MainDocumentPart?.Document.Body;
+			if (body == null) return;
+
+			var elements = body.ChildElements.ToList();
+			totalElements = elements.Count;
+
+			for (int i = 0; i < elements.Count; i++)
+			{
+				string text = elements[i].InnerText.Trim();
+				var match = questionRegex.Match(text);
+
+				if (match.Success)
+				{
+					questionNumbers.Add(int.Parse(match.Groups[2].Value));
+					questionStartIndices.Add(i);
+				}
+			}
+		}
+
+		for (int q = 0; q < questionNumbers.Count; q++)
+		{
+			int startIdx = questionStartIndices[q];
+			int endIdx = (q < questionNumbers.Count - 1) ? questionStartIndices[q + 1] - 1 : totalElements - 1;
+			int qNum = questionNumbers[q];
+
+			await SaveSplitSectionByDeletionAsync(qNum, startIdx, endIdx, sourcePath, examStudentId, examZipId, s3Path);
+		}
+	}
+
+	private async Task SaveSplitSectionByDeletionAsync(int questionNum, int startIdx, int endIdx, string sourcePath, long examStudentId, long examZipId, string s3Path)
+	{
+		string tempPath = Path.Combine(Path.GetTempPath(), $"split_q{questionNum}_{Guid.NewGuid()}.docx");
+		
+		// Copy the exact document so all ImageParts and Relationships are perfectly preserved
+		File.Copy(sourcePath, tempPath, true);
+		
+		using (WordprocessingDocument newDoc = WordprocessingDocument.Open(tempPath, true))
+		{
+			var body = newDoc.MainDocumentPart!.Document.Body!;
+			var elements = body.ChildElements.ToList();
+
+			for (int i = 0; i < elements.Count; i++)
+			{
+				if (i < startIdx || i > endIdx)
+				{
+					// Keep the final SectionProperties if it's the very last element in the Body to prevent corruption
+					if (i == elements.Count - 1 && elements[i] is DocumentFormat.OpenXml.Wordprocessing.SectionProperties)
+						continue;
+						
+					elements[i].Remove();
+				}
+			}
+			newDoc.MainDocumentPart.Document.Save();
+		}
+
+		// Upload to S3
+		string s3Url;
+		string fileName = $"Question_{questionNum}.docx";
+		using (var stream = File.OpenRead(tempPath))
+		{
+			s3Url = await _s3Service.UploadFileAsync(stream, fileName, s3Path);
+		}
+
+		// Save to DB
+		var docFile = new DocFile
+		{
+			ExamStudentId = examStudentId,
+			ExamZipId = examZipId,
+			FileName = fileName,
+			FilePath = s3Url,
+			ParseStatus = DocParseStatus.OK,
+			ParseMessage = "Split section (Images preserved)",
+			QuestionNumber = questionNum,
+			IsEmbedded = false
+		};
+
+		await _unitOfWork.DocFileRepository.AddAsync(docFile);
 		await _unitOfWork.SaveChangesAsync();
-		}
+
+		// Cleanup
+		if (File.Exists(tempPath)) File.Delete(tempPath);
+	}
+
 
 	public string ExtractTextFromWord(string wordFilePath)
 		{

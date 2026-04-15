@@ -1,4 +1,4 @@
-﻿using Model.Entity;
+using Model.Entity;
 using Model.Enums;
 using System;
 using System.Collections.Generic;
@@ -15,5 +15,6 @@ namespace BLL.Model.Request.Grade
         public long ExamStudentId { get; set; }
         public decimal TotalScore { get; set; }
         public string? Comment { get; set; } 
+        public List<GradeDetailUpdateDto> Details { get; set; } = new();
     }
 }
