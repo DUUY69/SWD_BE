@@ -181,6 +181,7 @@ namespace SWD_Grading
 			builder.Services.AddScoped<IVectorService, VectorService>();
 			builder.Services.AddScoped<IAIVerificationService, AIVerificationService>();
 			builder.Services.AddScoped<IPlagiarismService, PlagiarismService>();
+			builder.Services.AddScoped<IPacketSimilarityService, PacketSimilarityService>();
 
 			// Register BackgroundJobService to automatically process uploaded ZIP files
 			builder.Services.AddHostedService<BackgroundJobService>();

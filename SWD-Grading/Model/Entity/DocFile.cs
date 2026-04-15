@@ -43,6 +43,8 @@ namespace Model.Entity
 
 	public string? ParseMessage { get; set; }
 
+	public int? QuestionNumber { get; set; }
+
 	/// <summary>
 	/// Indicates whether this document has been embedded into the vector database.
 	/// False = not yet embedded (will be automatically processed by background job)
