@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,5 +10,8 @@ namespace BLL.Model.Request.Grade
     {
         public long ExamStudentId { get; set; }
         public long ExamId { get; set; }
+        public decimal TotalScore { get; set; }
+        public string? Comment { get; set; }
+        public List<GradeDetailUpdateDto> Details { get; set; } = new();
     }
 }

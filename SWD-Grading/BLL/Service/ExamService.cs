@@ -549,13 +549,26 @@ namespace BLL.Service
 				// 3. Mapping rubric row
 				//---------------------------------------------------------
 				int colD = 3;
+				Row partRow = rows[0];
 				Row rubricRow = rows[1];
+				Row scoreRow = rows[2];
 				var rubricMap = new Dictionary<string, int>();
-				int rubricLastCol = Math.Max(colD, GetMaxColumnIndex(rubricRow) - 2); // bỏ 2 cột cuối Total + Comment
-				for (int col = colD; col <= rubricLastCol; col++)
+				int totalCol = -1;
+				int commentCol = -1;
+				
+				int maxSearchCol = Math.Max(GetMaxColumnIndex(partRow), Math.Max(GetMaxColumnIndex(rubricRow), GetMaxColumnIndex(scoreRow)));
+
+				for (int col = colD; col <= maxSearchCol; col++)
 				{
+					var pName = GetCellValue(doc, GetOrCreateCell(wsPart, partRow, col));
 					var name = GetCellValue(doc, GetOrCreateCell(wsPart, rubricRow, col));
-					if (!string.IsNullOrWhiteSpace(name))
+					
+					bool isTotal = pName.Trim().Equals("Total", StringComparison.OrdinalIgnoreCase) || name.Trim().Equals("Total", StringComparison.OrdinalIgnoreCase);
+					bool isComment = pName.Trim().Equals("Comment", StringComparison.OrdinalIgnoreCase) || name.Trim().Equals("Comment", StringComparison.OrdinalIgnoreCase);
+					
+					if (isTotal) totalCol = col;
+					else if (isComment) commentCol = col;
+					else if (!string.IsNullOrWhiteSpace(name))
 						rubricMap[name.Trim()] = col;
 				}
 
@@ -625,8 +638,25 @@ namespace BLL.Service
 						}
 
 						// Ghi giá trị
-						cell.CellValue = new CellValue(score.ToString());
+						cell.CellValue = new CellValue(score.ToString(CultureInfo.InvariantCulture));
 						cell.DataType = CellValues.Number;
+					}
+
+					if (totalCol != -1)
+					{
+						var totalCell = GetOrCreateCell(wsPart, row, totalCol);
+						if (totalCell.CellFormula == null)
+						{
+							totalCell.CellValue = new CellValue(grade.TotalScore.ToString(CultureInfo.InvariantCulture));
+							totalCell.DataType = CellValues.Number;
+						}
+					}
+
+					if (commentCol != -1)
+					{
+						var commentCell = GetOrCreateCell(wsPart, row, commentCol);
+						commentCell.CellValue = new CellValue(grade.Comment ?? "");
+						commentCell.DataType = CellValues.String;
 					}
 				}
 				// ❗ BẢO TOÀN CÔNG THỨC → KHÔNG XOÁ calcChain
