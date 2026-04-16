@@ -189,8 +189,8 @@ namespace BLL.Service
 
 		public async Task Update(GradeUpdateRequest request, long id)
 		{
-			// 1. Get the grade
-			var existingGrade = await _unitOfWork.GradeRepository.GetById(id);
+			// 1. Get the grade using tracking so we don't cause Identity conflicts
+			var existingGrade = await _unitOfWork.GradeRepository.GetByIdAsync(id);
 			if (existingGrade == null)
 			{
 				throw new AppException("Grade not found", 404);
@@ -207,7 +207,7 @@ namespace BLL.Service
 					if (detail != null)
 					{
 						detail.Score = detailDto.Score;
-						await _unitOfWork.GradeDetailRepository.UpdateAsync(detail);
+						// Entity is tracked, changes will be saved automatically by SaveChangesAsync
 					}
 				}
 
@@ -230,10 +230,8 @@ namespace BLL.Service
 			if (existingExamStudent != null)
 			{
 				existingExamStudent.Status = ExamStudentStatus.GRADED;
-				await _unitOfWork.ExamStudentRepository.UpdateAsync(existingExamStudent);
 			}
 
-			await _unitOfWork.GradeRepository.UpdateAsync(existingGrade);
 			await _unitOfWork.SaveChangesAsync();
 		}
 
