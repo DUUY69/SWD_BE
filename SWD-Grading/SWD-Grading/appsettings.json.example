@@ -24,6 +24,11 @@
     "Endpoint": "http://localhost:6334",
     "CollectionName": "exam_submissions",
     "VectorSize": "384"
+  },
+  "PacketSimilarity": {
+    "SameQuestionBaselineThreshold": "0.78",
+    "GlobalBaselineThreshold": "0.72",
+    "MaxRecommendedThreshold": "0.95"
   }
 }
 

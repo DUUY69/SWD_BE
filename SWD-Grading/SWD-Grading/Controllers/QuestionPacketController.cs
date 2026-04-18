@@ -111,6 +111,51 @@ namespace SWD_Grading.Controllers
 			}
 		}
 
+		[HttpGet("exam/{examId:long}/threshold-recommendation")]
+		public async Task<ActionResult<BaseResponse<PacketSimilarityThresholdResponse>>> GetThresholdRecommendation(
+			long examId,
+			[FromQuery] SimilarityScope scope = SimilarityScope.SameQuestion,
+			[FromQuery] int? questionNumber = null)
+		{
+			try
+			{
+				var userId = User.GetUserId();
+				var recommendation = await _packetSimilarityService.GetThresholdRecommendationAsync(examId, scope, userId, questionNumber);
+
+				return Ok(new BaseResponse<PacketSimilarityThresholdResponse>
+				{
+					Success = true,
+					Message = "Threshold recommendation generated successfully.",
+					Data = recommendation
+				});
+			}
+			catch (Exception ex)
+			{
+				return BuildErrorResponse(ex);
+			}
+		}
+
+		[HttpPost("exam/{examId:long}/seed-test-data")]
+		public async Task<ActionResult<BaseResponse<PacketSimilaritySeedResponse>>> SeedTestData(long examId, [FromBody] PacketSimilaritySeedRequest request)
+		{
+			try
+			{
+				var userId = User.GetUserId();
+				var seedResult = await _packetSimilarityService.SeedTestDataAsync(examId, userId, request.StudentCount, request.QuestionCount);
+
+				return Ok(new BaseResponse<PacketSimilaritySeedResponse>
+				{
+					Success = true,
+					Message = "Packet similarity test data created successfully.",
+					Data = seedResult
+				});
+			}
+			catch (Exception ex)
+			{
+				return BuildErrorResponse(ex);
+			}
+		}
+
 		[HttpGet("flags/{flagId:long}")]
 		public async Task<ActionResult<BaseResponse<SimilarityFlagResponse>>> GetFlagById(long flagId)
 		{
